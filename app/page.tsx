@@ -1,8 +1,9 @@
+// app/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import PriceChart from '@/components/PriceChart';
 
-// Función para abreviar números grandes
 function formatNumber(num: number): string {
   if (!num) return 'N/A';
   if (num >= 1_000_000_000_000) return `$${(num / 1_000_000_000_000).toFixed(2)}T`;
@@ -11,7 +12,6 @@ function formatNumber(num: number): string {
   return `$${num.toLocaleString()}`;
 }
 
-// Tipos
 type SortKey = 'market_cap' | 'current_price' | 'price_change_percentage_24h' | 'total_volume';
 type SortDir = 'asc' | 'desc';
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [sortKey, setSortKey] = useState<SortKey>('market_cap');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [countdown, setCountdown] = useState(30);
+  const [selectedCoin, setSelectedCoin] = useState<{ id: string; name: string } | null>(null);
 
   const loadData = useCallback(async () => {
     const res = await fetch('/api/markets');
@@ -31,18 +32,13 @@ export default function Home() {
     setCountdown(30);
   }, []);
 
-  // Carga inicial
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  // Actualización cada 30s
   useEffect(() => {
     const timer = setInterval(loadData, 30000);
     return () => clearInterval(timer);
   }, [loadData]);
 
-  // Countdown visual
   useEffect(() => {
     const tick = setInterval(() => {
       setCountdown(prev => (prev <= 1 ? 30 : prev - 1));
@@ -50,7 +46,6 @@ export default function Home() {
     return () => clearInterval(tick);
   }, []);
 
-  // Ordenar columnas
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -67,7 +62,7 @@ export default function Home() {
   );
 
   const filteredCoins = coins
-    .filter((coin) =>
+    .filter(coin =>
       coin.name.toLowerCase().includes(search.toLowerCase()) ||
       coin.symbol.toLowerCase().includes(search.toLowerCase())
     )
@@ -98,14 +93,12 @@ export default function Home() {
               🪙 CryptoTrack Pro
             </h1>
             <div className="flex items-center space-x-4">
-              {/* Countdown */}
               <div className="flex items-center space-x-2 bg-black/50 px-4 py-2 rounded-full border border-white/10">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm font-mono font-bold text-green-400">
                   Live · {countdown}s
                 </span>
               </div>
-              {/* Buscador */}
               <div className="relative">
                 <input
                   type="text"
@@ -128,26 +121,25 @@ export default function Home() {
         {/* Top 4 Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {coins.slice(0, 4).map((coin: any, i: number) => (
-            <div key={coin.id} className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:bg-white/20 transition-all hover:scale-105">
+            <div
+              key={coin.id}
+              onClick={() => setSelectedCoin({ id: coin.id, name: coin.name })}
+              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:bg-white/20 transition-all hover:scale-105 cursor-pointer"
+            >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  {/* Logo real desde CoinGecko */}
-                  <img
-                    src={coin.image}
-                    alt={coin.name}
-                    className="w-10 h-10 rounded-full"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                </div>
+                <img
+                  src={coin.image}
+                  alt={coin.name}
+                  className="w-10 h-10 rounded-full"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
                 <span className="text-xl font-black text-blue-400">#{i + 1}</span>
               </div>
               <h3 className="text-lg font-bold mb-1">{coin.name}</h3>
               <div className="text-2xl font-black mb-2">
                 ${coin.current_price?.toLocaleString()}
               </div>
-              <div className={`text-base font-bold ${
-                coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}>
+              <div className={`text-base font-bold ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {coin.price_change_percentage_24h >= 0 ? '▲' : '▼'} {Math.abs(coin.price_change_percentage_24h || 0).toFixed(2)}% (24h)
               </div>
             </div>
@@ -156,13 +148,11 @@ export default function Home() {
 
         {/* Tabla */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
-          <div className="p-6 border-b border-white/10 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Top 100 Cryptocurrencies</h2>
-              <p className="text-gray-400 text-sm mt-1">
-                {filteredCoins.length} resultados · Haz clic en los encabezados para ordenar
-              </p>
-            </div>
+          <div className="p-6 border-b border-white/10">
+            <h2 className="text-2xl font-bold">Top 100 Cryptocurrencies</h2>
+            <p className="text-gray-400 text-sm mt-1">
+              {filteredCoins.length} resultados · Clic en una fila para ver el gráfico histórico
+            </p>
           </div>
 
           <div className="overflow-x-auto">
@@ -171,28 +161,16 @@ export default function Home() {
                 <tr className="bg-black/30 text-gray-400 text-sm uppercase tracking-wider">
                   <th className="p-4 text-left">#</th>
                   <th className="p-4 text-left">Nombre</th>
-                  <th
-                    className="p-4 text-right cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('current_price')}
-                  >
+                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('current_price')}>
                     Precio <SortIcon col="current_price" />
                   </th>
-                  <th
-                    className="p-4 text-right cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('market_cap')}
-                  >
+                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('market_cap')}>
                     Market Cap <SortIcon col="market_cap" />
                   </th>
-                  <th
-                    className="p-4 text-right cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('total_volume')}
-                  >
+                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('total_volume')}>
                     Volumen 24h <SortIcon col="total_volume" />
                   </th>
-                  <th
-                    className="p-4 text-right cursor-pointer hover:text-white transition-colors"
-                    onClick={() => handleSort('price_change_percentage_24h')}
-                  >
+                  <th className="p-4 text-right cursor-pointer hover:text-white transition-colors" onClick={() => handleSort('price_change_percentage_24h')}>
                     24h % <SortIcon col="price_change_percentage_24h" />
                   </th>
                 </tr>
@@ -203,14 +181,12 @@ export default function Home() {
                   return (
                     <tr
                       key={coin.id}
-                      className="border-t border-white/5 hover:bg-white/10 transition-all"
+                      onClick={() => setSelectedCoin({ id: coin.id, name: coin.name })}
+                      className="border-t border-white/5 hover:bg-white/10 transition-all cursor-pointer"
                     >
-                      <td className="p-4 font-mono font-bold text-blue-400">
-                        {index + 1}
-                      </td>
+                      <td className="p-4 font-mono font-bold text-blue-400">{index + 1}</td>
                       <td className="p-4">
                         <div className="flex items-center space-x-3">
-                          {/* Logo real */}
                           <img
                             src={coin.image}
                             alt={coin.name}
@@ -224,9 +200,7 @@ export default function Home() {
                         </div>
                       </td>
                       <td className="p-4 text-right">
-                        <span className="text-lg font-black">
-                          ${coin.current_price?.toLocaleString()}
-                        </span>
+                        <span className="text-lg font-black">${coin.current_price?.toLocaleString()}</span>
                       </td>
                       <td className="p-4 text-right font-mono text-sm text-gray-300">
                         {formatNumber(coin.market_cap)}
@@ -255,6 +229,15 @@ export default function Home() {
           Datos desde CoinGecko API · CryptoTrack Pro © 2026
         </p>
       </div>
+
+      {/* Modal gráfico */}
+      {selectedCoin && (
+        <PriceChart
+          coinId={selectedCoin.id}
+          coinName={selectedCoin.name}
+          onClose={() => setSelectedCoin(null)}
+        />
+      )}
     </div>
   );
 }
